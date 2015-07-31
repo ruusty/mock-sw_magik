@@ -4,7 +4,7 @@
 //
 
 #pragma once
-
+#include <atlbase.h>
 #include "targetver.h"
 #include <windows.h>
 #include <tchar.h>

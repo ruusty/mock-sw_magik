@@ -5,48 +5,118 @@
 #include <string>
 #include <iostream>
 #include <vector>
-#include <conio.h>
 #include <fstream>  
+
 using namespace std;
-#define BUFSIZE 4096
-#define VARNAME TEXT("TNS_ADMIN")
+
+
+
+
+string getEnv(const char *varname)
+{
+
+	string rv;
+	rv.empty();
+
+   char *pValue;
+   size_t len;
+   errno_t err = _dupenv_s( &pValue, &len, varname );
+   printf("getEnv (%s ==> %s)\n",varname,pValue); 
+   if ( err == 0 )    rv = string(pValue);
+   free( pValue );
+   return rv;
+}
+
 
 int _tmain(int argc, _TCHAR* argv[])
-{
+{	
+	USES_CONVERSION;
     LPTSTR lpszVariable; 
     LPTCH lpvEnv; 
  
 	//--------------------------------------------------------------
+	//_wdupenv_s
+    //_dupenv_s
+	 string JobName = getEnv("POSH_JobName");
+	 string JobReportPath = getEnv("POSH_JobReportPath");
+	 bool isRedirectedStdin = GetFileType(GetStdHandle(STD_INPUT_HANDLE)) != FILE_TYPE_CHAR;
 
-    // Get a pointer to the environment block. 
- 
-    lpvEnv = GetEnvironmentStrings();
+	 cout << "isRedirectedStdin " << (isRedirectedStdin?"True":"False") << " JobName " << JobName << " JobReportPath " << JobReportPath << endl;
+	 //--------------------------------------------------------------
+	 if (isRedirectedStdin && JobReportPath.length() > 0) {
+     	std::ofstream ofs (JobReportPath, std::ofstream::out);
+		ofs << "isRedirectedStdin " << (isRedirectedStdin?"True":"False") << " JobName " << JobName << " JobReportPath " << JobReportPath << endl;
+        string s;
+	     while( !cin.eof() ) {
+			getline(cin, s);
+			ofs << s << endl;
+		 }
+		ofs.close();
+	 }
+
+	lpvEnv = GetEnvironmentStrings();
 
     // If the returned pointer is NULL, exit.
     if (lpvEnv == NULL)
     {
         printf("GetEnvironmentStrings failed (%d)\n", GetLastError()); 
-        return 0;
+        return 1;
     }
-	 // Variable strings are separated by NULL byte, and the block is 
+	// Variable strings are separated by NULL byte, and the block is 
     // terminated by a NULL byte. 
 
     lpszVariable = (LPTSTR) lpvEnv;
+	typedef std::basic_string<TCHAR, std::char_traits<TCHAR>> tstring;
+	if ( JobReportPath.length() > 0) {
+		 std::ofstream ofs (JobReportPath, std::ofstream::out |std::ofstream::app);
+		string s;
+
+		while (*lpszVariable)
+		{
+			ofs << string(W2A(lpszVariable)) << endl;
+			lpszVariable += lstrlen(lpszVariable) + 1;
+		}
+		FreeEnvironmentStrings(lpvEnv);
+
+		ofs.close();
+	 }
+
+
+	 //-----------------------------------------------
+    // Get a pointer to the environment block. 
+ 
+    lpvEnv = GetEnvironmentStrings();
+
+
+    // If the returned pointer is NULL, exit.
+    if (lpvEnv == NULL)
+    {
+        printf("GetEnvironmentStrings failed (%d)\n", GetLastError()); 
+        return 1;
+    }
+	// Variable strings are separated by NULL byte, and the block is 
+    // terminated by a NULL byte. 
+
+    lpszVariable = (LPTSTR) lpvEnv;
+	typedef std::basic_string<TCHAR, std::char_traits<TCHAR>> tstring;
 
     while (*lpszVariable)
     {
-        _tprintf(TEXT("%s\n"), lpszVariable);
+        //_tprintf(TEXT("%s\n"), lpszVariable);
+		cout << string(W2A(lpszVariable)) << endl;
         lpszVariable += lstrlen(lpszVariable) + 1;
     }
     FreeEnvironmentStrings(lpvEnv);
 
 
-
+/*
 	//--------------------------------------------------------------
-	 DWORD dwRet, dwErr;
-	 LPTSTR pszOldVal; 
-	 BOOL fExist; 
-	 pszOldVal = (LPTSTR) malloc(BUFSIZE*sizeof(TCHAR));
+	#define BUFSIZE 4096
+    #define VARNAME TEXT("TNS_ADMIN")
+	DWORD dwRet, dwErr;
+	LPTSTR pszOldVal; 
+	BOOL fExist; 
+	pszOldVal = (LPTSTR) malloc(BUFSIZE*sizeof(TCHAR));
     if(NULL == pszOldVal)
     {
         printf("Out of memory\n");
@@ -54,7 +124,7 @@ int _tmain(int argc, _TCHAR* argv[])
     }
 
 	dwRet = GetEnvironmentVariable(VARNAME, pszOldVal, BUFSIZE);
-	    if(0 == dwRet)
+	if(0 == dwRet)
     {
         dwErr = GetLastError();
         if( ERROR_ENVVAR_NOT_FOUND == dwErr )
@@ -88,32 +158,10 @@ int _tmain(int argc, _TCHAR* argv[])
 	typedef std::basic_string<TCHAR, std::char_traits<TCHAR>, std::allocator<TCHAR> > tstring;
 
 	tstring wstr=tstring(pszOldVal);
-	wcout << L"Retried value:" << wstr << endl;
-
-
-	//--------------------------------------------------------------
-	//Check if input from file redirection
-	HANDLE hStdin; 
-	// Get the standard input handle. 
-	//https://msdn.microsoft.com/en-us/library/windows/desktop/ms685035%28v=vs.85%29.aspx
- 
-    hStdin = GetStdHandle(STD_INPUT_HANDLE); 
-	DWORD fdwSaveOldMode;
-	GetConsoleMode(hStdin, &fdwSaveOldMode); 
-	cout << "fdwSaveOldMode:" << fdwSaveOldMode << endl;
-	cout << "fdwSaveOldMode & ENABLE_LINE_INPUT:" << (fdwSaveOldMode & ENABLE_LINE_INPUT ) << endl;
-		
-	if ((fdwSaveOldMode & ENABLE_LINE_INPUT ) == 0)
-	{
-	  string s;
-	  while( !cin.eof() ) {
-         getline(cin, s);
-		 cout << s << endl;
-     }
-	}
+	wcout << VARNAME <<L" value:" << wstr << endl;
+*/
 
    //--------------------------------------------------------------
-
    LPWSTR *szArglist;
    int nArgs;
    int i;
@@ -127,15 +175,10 @@ int _tmain(int argc, _TCHAR* argv[])
    else for( i=0; i<nArgs; i++) printf("%d: %ws\n", i, szArglist[i]);
 
 // Free memory allocated for CommandLineToArgvW arguments.
-
    LocalFree(szArglist);
 
   
-   //--------------------------------------------------------------
 
-	std::ofstream ofs ("D:\\Data.DEV\\GIS-VegetationSpanReport\\VEGETATION_SPANS_REPORT.txt", std::ofstream::out);
-	ofs << "lorem ipsum";
-	ofs.close();
    return 0;
 }
 
