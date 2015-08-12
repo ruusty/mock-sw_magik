@@ -5,3 +5,5 @@ Release
 x86
 *.suo
 *.user
+*.sdf
+prj
